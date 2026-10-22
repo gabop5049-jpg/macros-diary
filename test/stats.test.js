@@ -42,3 +42,15 @@ test('every meal idea has a known tag and valid foods', () => {
   }
   for (const tag of TAGS) assert.ok(IDEAS.some((i) => i.tags.includes(tag)), tag);
 });
+
+test('serving size changes scale by the amount when the unit matches', () => {
+  const { servingFactor } = require('../stats.js');
+  assert.strictEqual(servingFactor('30 g', '45 g'), 1.5);
+  assert.strictEqual(servingFactor('1/2 cup', '1 cup'), 2);
+  assert.strictEqual(servingFactor('100g', '.5g'), 0.005);
+  assert.strictEqual(servingFactor('2 Slices', '3 slices'), 1.5);
+  assert.strictEqual(servingFactor('30 g', '1 cup'), null); // different unit
+  assert.strictEqual(servingFactor('a handful', '2 handfuls'), null);
+  assert.strictEqual(servingFactor('0 g', '5 g'), null); // nothing to scale from
+  assert.strictEqual(servingFactor('1/0 cup', '1 cup'), null);
+});

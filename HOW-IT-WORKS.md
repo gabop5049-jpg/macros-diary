@@ -5,7 +5,7 @@
 | File | Role |
 |---|---|
 | `index.html` | The whole UI (markup + CSS) for the four pages (Today, Plan, Progress, More). Loads `calc.js`, `stats.js`, `ideas.js`, `backup.js`, `app.js` in that order with plain `<script>` tags, so each defines globals (`Calc`, `Stats`, `Ideas`, `Backup`) the next one uses. Meal icons live in `<template>` tags that `app.js` clones. |
-| `stats.js` | Pure date/diary math: Sun–Sat weeks, totals, macro % split (by calories), logging streak, weekly weight averages. Unit tested. |
+| `stats.js` | Pure date/diary math: Sun–Sat weeks, totals, macro % split (by calories), logging streak, weekly weight averages, serving-size scaling (`servingFactor`: "30 g" → "45 g" = 1.5, only when the units match). Unit tested. |
 | `ideas.js` | Built-in meal ideas for the Plan page, tagged High protein / Low calorie / Cutting / Bulking. |
 | `calc.js` | Pure math: profile in, targets out. No DOM, so Node tests can `require` it. The bottom `module.exports` / `root.Calc` lines make the same file work in Node and the browser. |
 | `backup.js` | Export format + strict import validation. Same Node/browser trick, so it's unit tested too. |

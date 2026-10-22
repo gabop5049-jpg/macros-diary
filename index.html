@@ -127,16 +127,26 @@
   .note { background: color-mix(in srgb, var(--fat) 18%, transparent); border-radius: 8px; padding: 10px; font-size: 13px; }
 
   .sheet { position: fixed; inset: 0; z-index: 10; background: rgb(0 0 0 / .45); display: flex; align-items: flex-end; justify-content: center; }
-  .sheet > div { background: var(--bg); width: 100%; max-width: 560px; max-height: 92%; overflow-y: auto; border-radius: 14px 14px 0 0;
+  .sheet > div { background: var(--bg); width: 100%; max-width: 560px; height: 92%; align-content: start; overflow-y: auto; border-radius: 14px 14px 0 0;
     padding: 16px max(16px, env(safe-area-inset-right, 0px)) calc(16px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); display: grid; gap: 12px; }
   .sheet h2 { margin: 0; font-size: 17px; }
   .sheethead { display: flex; justify-content: space-between; align-items: center; }
   .sheethead button { background: none; border: 0; color: var(--brand); font-size: 15px; cursor: pointer; padding: 6px; }
   #video { width: 100%; border-radius: 10px; background: #000; aspect-ratio: 4 / 3; object-fit: cover; }
   .recent { display: grid; gap: 0; background: var(--card); border-radius: 10px; overflow: hidden; }
-  .recent button { text-align: left; background: none; border: 0; border-bottom: 1px solid var(--line); padding: 10px 12px; cursor: pointer; display: flex; justify-content: space-between; gap: 8px; }
+  .recent:empty { display: none; }
+  .item { display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--line); }
+  .item > button:first-child { flex: 1; min-width: 0; text-align: left; background: none; border: 0; padding: 10px 12px; cursor: pointer; }
+  .item .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .item .addone { flex: none; width: 34px; height: 34px; margin-right: 10px; border-radius: 50%; border: 0; background: color-mix(in srgb, var(--brand) 14%, transparent); color: var(--brand); font-size: 22px; line-height: 1; cursor: pointer; }
+  .item input { width: 70px; margin-right: 6px; padding: 6px; }
+  .tile { display: flex; align-items: center; gap: 10px; padding: 12px; border: 0; border-radius: 12px; background: var(--card); color: var(--brand); font-weight: 600; cursor: pointer; }
+  .tile svg { width: 24px; height: 24px; }
+  input[type="search"] { border-radius: 999px; padding-left: 16px; }
   .status { font-size: 13px; min-height: 1.4em; }
   .status.err { color: var(--over); }
+  .status:empty { display: none; }
+  .screen { display: grid; gap: 12px; align-content: start; }
   @media (prefers-reduced-motion: no-preference) { .bar i { transition: width .3s; } }
 </style>
 </head>
@@ -304,25 +314,41 @@
     <div class="sheethead">
       <button type="button" id="closeSheet">Cancel</button>
       <h2 id="sheetTitle">Add food</h2>
-      <span style="width:52px"></span>
+      <button type="button" id="backBtn" style="min-width:52px">Back</button>
     </div>
-    <button class="btn ghost" type="button" id="scanBtn">Scan a barcode</button>
-    <div id="scanBox" hidden style="display:grid;gap:8px">
-      <video id="video" playsinline muted></video>
-      <div class="row">
-        <input id="manualCode" inputmode="numeric" placeholder="Or type the barcode number" aria-label="Barcode number">
-        <button class="btn ghost" type="button" id="lookupBtn">Look up</button>
-      </div>
-    </div>
+    <label id="mealBox">Meal<select id="meal"></select></label>
     <div class="status" id="scanStatus" role="status"></div>
-    <form class="grid" id="foodForm">
-      <label>Meal<select id="meal"></select></label>
+
+    <!-- Screen 1: search, barcode, History / My meals / My foods -->
+    <section id="browse" class="screen">
+      <input type="search" id="search" placeholder="Search your foods" aria-label="Search your foods" autocomplete="off" maxlength="60">
+      <button class="tile" type="button" id="scanBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 7V4h3M18 4h3v3M21 17v3h-3M6 20H3v-3M7 8v8M10 8v8M13 8v8M16 8v8"/></svg>Barcode scan</button>
+      <div id="scanBox" hidden style="display:grid;gap:8px">
+        <video id="video" playsinline muted></video>
+        <div class="row">
+          <input id="manualCode" inputmode="numeric" placeholder="Or type the barcode number" aria-label="Barcode number">
+          <button class="btn ghost" type="button" id="lookupBtn">Look up</button>
+        </div>
+      </div>
+      <div class="seg" role="group" aria-label="Show">
+        <button type="button" data-tab="history">History</button>
+        <button type="button" data-tab="meals">My meals</button>
+        <button type="button" data-tab="foods">My foods</button>
+      </div>
+      <button class="btn ghost" type="button" id="createBtn" hidden></button>
+      <div class="recent" id="list"></div>
+      <button class="addlink" type="button" id="manualBtn">Type in a food without saving it</button>
+    </section>
+
+    <!-- Screen 2: one food, with servings -->
+    <form class="grid screen" id="foodForm" hidden>
       <label>Food name<input id="foodName" required maxlength="120" autocomplete="off"></label>
       <div class="row">
-        <label>Serving size<input id="serving" placeholder="e.g. 1 cup, 30 g" maxlength="40"></label>
+        <label>Serving size<input id="serving" placeholder="e.g. 1 cup, 30 g" maxlength="40" autocomplete="off"></label>
         <label>Number of servings<input id="qty" type="number" inputmode="decimal" min="0.01" step="any" value="1" required></label>
       </div>
-      <p class="small muted" style="margin:0">Nutrition per serving</p>
+      <p class="small muted" style="margin:0">Nutrition per serving. Change the number in the serving size (30 g → 45 g) and these scale with it.</p>
       <div class="row">
         <label>Calories<input id="kcal" type="number" inputmode="decimal" min="0" step="any" required></label>
         <label>Protein (g)<input id="protein" type="number" inputmode="decimal" min="0" step="any" value="0"></label>
@@ -331,13 +357,41 @@
         <label>Carbs (g)<input id="carbs" type="number" inputmode="decimal" min="0" step="any" value="0"></label>
         <label>Fat (g)<input id="fat" type="number" inputmode="decimal" min="0" step="any" value="0"></label>
       </div>
+      <div class="card num" id="foodTotal"></div>
       <button class="btn" type="submit" id="saveFood">Add to diary</button>
       <button class="btn danger" type="button" id="deleteFood" hidden>Remove from diary</button>
     </form>
-    <div id="recentBox">
-      <p class="small muted" style="margin:0 0 6px">Recent foods</p>
-      <div class="recent" id="recent"></div>
-    </div>
+
+    <!-- Screen 3: create a food for My foods -->
+    <form class="grid screen" id="newFoodForm" hidden>
+      <label>Brand name<input id="nfBrand" maxlength="60" placeholder="Optional" autocomplete="off"></label>
+      <label>Description<input id="nfName" maxlength="60" required placeholder="e.g. Greek yogurt, plain" autocomplete="off"></label>
+      <div class="row">
+        <label>Serving size<input id="nfServing" maxlength="40" required placeholder="e.g. 1 cup, 170 g" autocomplete="off"></label>
+        <label>Servings per container<input id="nfPer" type="number" inputmode="decimal" min="0" max="1000" step="any" placeholder="Optional"></label>
+      </div>
+      <p class="small muted" style="margin:0">Nutrition per serving</p>
+      <div class="row">
+        <label>Calories<input id="nfKcal" type="number" inputmode="decimal" min="0" max="20000" step="any" required></label>
+        <label>Protein (g)<input id="nfProtein" type="number" inputmode="decimal" min="0" max="2000" step="any" value="0"></label>
+      </div>
+      <div class="row">
+        <label>Carbs (g)<input id="nfCarbs" type="number" inputmode="decimal" min="0" max="2000" step="any" value="0"></label>
+        <label>Fat (g)<input id="nfFat" type="number" inputmode="decimal" min="0" max="2000" step="any" value="0"></label>
+      </div>
+      <button class="btn" type="submit">Save food</button>
+    </form>
+
+    <!-- Screen 4: create a meal out of foods -->
+    <form class="grid screen" id="newMealForm" hidden>
+      <label>Meal name<input id="nmName" maxlength="120" required placeholder="e.g. BLT" autocomplete="off"></label>
+      <div class="recent" id="nmFoods"></div>
+      <div class="card num small" id="nmTotal"></div>
+      <label>Add foods<input type="search" id="nmSearch" placeholder="Search your foods" autocomplete="off" maxlength="60"></label>
+      <div class="recent" id="nmPick"></div>
+      <button class="addlink" type="button" id="nmNewFood">Food not listed? Create it</button>
+      <button class="btn" type="submit">Save meal</button>
+    </form>
   </div>
 </div>
 

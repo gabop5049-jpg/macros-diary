@@ -9,9 +9,9 @@ const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls)
 function load() {
   try {
     const s = JSON.parse(localStorage.getItem(KEY));
-    if (s && typeof s === 'object') return { units: 'imperial', profile: null, log: {}, recent: [], weights: {}, meals: [], ...s };
+    if (s && typeof s === 'object') return { units: 'imperial', profile: null, log: {}, recent: [], weights: {}, meals: [], foods: [], ...s };
   } catch (e) { /* corrupt or blocked storage: start fresh */ }
-  return { units: 'imperial', profile: null, log: {}, recent: [], weights: {}, meals: [] };
+  return { units: 'imperial', profile: null, log: {}, recent: [], weights: {}, meals: [], foods: [] };
 }
 let state = load();
 function save() {
@@ -185,17 +185,28 @@ function saveAsMeal(foods) {
 // ---------- plan ----------
 MEALS.forEach((m) => $('planMeal').append(el('option', '', m)));
 
-// Adds every food of a saved meal or idea to the selected day in one go.
-function logFoods(foods, btn) {
+// Adds foods to `meal` on the selected day. Logging a saved meal also moves it to the top of History.
+function addEntries(foods, meal, saved) {
   const key = dayKey(current);
   const list = state.log[key] || (state.log[key] = []);
-  const meal = $('planMeal').value;
-  for (const f of foods) list.push({ id: Date.now() + Math.random(), meal, qty: f.qty ?? 1,
-    name: f.name, serving: f.serving, kcal: f.kcal, protein: f.protein, carbs: f.carbs, fat: f.fat });
+  for (const f of foods) {
+    const food = { name: f.name, serving: f.serving, kcal: f.kcal, protein: f.protein, carbs: f.carbs, fat: f.fat };
+    list.push({ id: Date.now() + Math.random(), meal, qty: f.qty ?? 1, ...food });
+    remember(food);
+  }
+  if (saved) saved.lastUsed = Date.now();
   save();
   renderToday();
-  btn.textContent = 'Logged ✓';
-  setTimeout(() => { btn.textContent = 'Log'; }, 1500);
+}
+// Most recent first, one entry per food name, capped so storage stays small.
+function remember(food) {
+  state.recent = [food, ...state.recent.filter((r) => r.name.toLowerCase() !== food.name.toLowerCase())].slice(0, 50);
+}
+function flash(btn, text) {
+  btn.dataset.label ??= btn.textContent;
+  btn.textContent = text;
+  clearTimeout(btn.flashTimer);
+  btn.flashTimer = setTimeout(() => { btn.textContent = btn.dataset.label; }, 1500);
 }
 
 function planCard(m, onDelete) {
@@ -216,7 +227,7 @@ function planCard(m, onDelete) {
   } else card.append(el('span'));
   const log = el('button', 'logbtn', 'Log');
   log.type = 'button';
-  log.onclick = () => logFoods(m.foods, log);
+  log.onclick = () => { addEntries(m.foods, $('planMeal').value, onDelete ? m : null); flash(log, 'Logged ✓'); };
   card.append(log, subs);
   return card;
 }
@@ -437,47 +448,127 @@ function renderTargets(t, error) {
   for (const msg of t.notes) { const n = document.createElement('div'); n.className = 'note'; n.textContent = msg; notes.append(n); }
 }
 
-// ---------- add / edit food ----------
-let editing = null;
-MEALS.forEach((m) => { const o = document.createElement('option'); o.textContent = m; $('meal').append(o); });
+// ---------- add food sheet ----------
+// Four screens in one sheet: browse (search, barcode, History / My meals / My foods), one food
+// with its servings, Create food and Create meal.
+let editing = null, tab = 'history', draft = null, newFoodForMeal = false;
+const NUTR = ['kcal', 'protein', 'carbs', 'fat'];
+const SCREENS = { browse: 'Add food', foodForm: 'Add food', newFoodForm: 'Create food', newMealForm: 'Create meal' };
+MEALS.forEach((m) => $('meal').append(el('option', '', m)));
+const foodLabel = (f) => (f.brand ? `${f.brand} ${f.name}` : f.name).slice(0, 120);
+const macroLine = (t) => `${Math.round(t.kcal)} cal · C ${round1(t.carbs)} g · F ${round1(t.fat)} g · P ${round1(t.protein)} g`;
+
+function showScreen(name) {
+  for (const k of Object.keys(SCREENS)) $(k).hidden = k !== name;
+  $('sheetTitle').textContent = editing ? 'Edit food' : SCREENS[name];
+  $('mealBox').hidden = name === 'newFoodForm' || name === 'newMealForm';
+  $('backBtn').style.visibility = name === 'browse' || editing ? 'hidden' : 'visible';
+  if (name !== 'browse') stopScan();
+  setStatus('');
+  $('foodSheet').firstElementChild.scrollTop = 0;
+}
+$('backBtn').onclick = () => {
+  if (!$('newFoodForm').hidden && newFoodForMeal) showScreen('newMealForm');
+  else { showScreen('browse'); renderList(); }
+};
 
 function openSheet(meal, entry) {
   editing = entry || null;
-  $('foodForm').reset();
+  for (const f of ['foodForm', 'newFoodForm', 'newMealForm']) $(f).reset();
   $('meal').value = meal;
-  $('sheetTitle').textContent = entry ? 'Edit food' : 'Add food';
+  $('search').value = '';
   $('saveFood').textContent = entry ? 'Save changes' : 'Add to diary';
   $('deleteFood').hidden = !entry;
-  $('recentBox').hidden = !!entry || !state.recent.length;
-  $('scanBtn').hidden = !!entry;
-  setStatus('');
-  if (entry) fillFood(entry);
-  renderRecent();
   $('foodSheet').hidden = false;
+  if (entry) { fillFood(entry); showScreen('foodForm'); }
+  else { setTab('history'); showScreen('browse'); }
 }
 function closeSheet() { stopScan(); $('foodSheet').hidden = true; }
 $('closeSheet').onclick = closeSheet;
 $('foodSheet').onclick = (ev) => { if (ev.target === $('foodSheet')) closeSheet(); };
 document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape' && !$('foodSheet').hidden) closeSheet(); });
 
+// ----- browse -----
+function setTab(t) {
+  tab = t;
+  document.querySelectorAll('[data-tab]').forEach((b) => b.setAttribute('aria-pressed', b.dataset.tab === t));
+  $('search').placeholder = { history: 'Search foods you logged', meals: 'Search my meals', foods: 'Search my foods' }[t];
+  $('createBtn').hidden = t === 'history';
+  $('createBtn').textContent = t === 'meals' ? 'Create meal' : 'Create food';
+  renderList();
+}
+document.querySelectorAll('[data-tab]').forEach((b) => (b.onclick = () => setTab(b.dataset.tab)));
+$('search').oninput = () => renderList();
+$('createBtn').onclick = () => (tab === 'meals' ? openMealBuilder() : openNewFood(false));
+$('manualBtn').onclick = () => { $('foodForm').reset(); captureBase(); updateTotal(); showScreen('foodForm'); };
+
+// Created foods first, then everything you've logged that isn't one of them.
+function myFoods() {
+  const mine = new Set(state.foods.map((f) => foodLabel(f).toLowerCase()));
+  return [...state.foods, ...state.recent.filter((f) => !mine.has(f.name.toLowerCase()))];
+}
+
+// A row: tap the text to open it, tap + to log it straight away.
+function itemRow(title, sub, onOpen, onAdd, addLabel) {
+  const row = el('div', 'item');
+  const open = el('button');
+  open.type = 'button';
+  open.append(el('div', 'name', title), el('div', 'small muted num', sub));
+  open.onclick = onOpen;
+  const add = el('button', 'addone', '+');
+  add.type = 'button';
+  add.setAttribute('aria-label', `${addLabel || 'Log'} ${title}`);
+  add.onclick = () => { onAdd(); flash(add, '✓'); };
+  row.append(open, add);
+  return row;
+}
+const foodSub = (f) => `${f.serving || '1 serving'} · ${Math.round(f.kcal)} cal`;
+const mealSub = (m) => `Meal · ${m.foods.length} food${m.foods.length === 1 ? '' : 's'} · ${Math.round(totals(m.foods).kcal)} cal`;
+const foodRow = (f) => itemRow(foodLabel(f), foodSub(f), () => { fillFood({ ...f, name: foodLabel(f), qty: 1 }); showScreen('foodForm'); },
+  () => addEntries([{ ...f, name: foodLabel(f) }], $('meal').value));
+const mealRow = (m) => itemRow(m.name, mealSub(m), () => openMealBuilder(m), () => addEntries(m.foods, $('meal').value, m));
+
+function renderList() {
+  const q = $('search').value.trim().toLowerCase();
+  const match = (name) => name.toLowerCase().includes(q);
+  let rows;
+  if (tab === 'history') {
+    const used = state.meals.filter((m) => m.lastUsed && match(m.name)).sort((a, b) => b.lastUsed - a.lastUsed);
+    rows = [...used.map(mealRow), ...state.recent.filter((f) => match(f.name)).map(foodRow)];
+  } else if (tab === 'meals') rows = state.meals.filter((m) => match(m.name)).map(mealRow);
+  else rows = myFoods().filter((f) => match(foodLabel(f))).map(foodRow);
+  $('list').replaceChildren(...rows);
+  if (!rows.length) {
+    const empty = { history: 'Foods and meals you log show up here.', meals: 'No saved meals yet. Tap Create meal.', foods: 'No foods yet. Tap Create food.' }[tab];
+    const p = el('p', 'small muted', q ? `Nothing matches "${$('search').value.trim()}".` : empty);
+    p.style.padding = '12px';
+    $('list').append(p);
+  }
+}
+
+// ----- one food -----
+// `base` is the serving and nutrition the label gave; changing the serving amount scales from it.
+let base = null;
+function captureBase() { base = { serving: $('serving').value, ...Object.fromEntries(NUTR.map((k) => [k, parseFloat($(k).value) || 0])) }; }
+function updateTotal() {
+  const qty = parseFloat($('qty').value) || 0;
+  const t = Object.fromEntries(NUTR.map((k) => [k, (parseFloat($(k).value) || 0) * qty]));
+  $('foodTotal').textContent = `Total for ${round1(qty)} serving${qty === 1 ? '' : 's'}: ${macroLine(t)}`;
+}
+$('serving').oninput = () => {
+  const f = Stats.servingFactor(base.serving, $('serving').value);
+  if (f !== null) NUTR.forEach((k) => { $(k).value = round1(base[k] * f); });
+  updateTotal();
+};
+NUTR.forEach((k) => { $(k).oninput = () => { captureBase(); updateTotal(); }; });
+$('qty').oninput = updateTotal;
+
 function fillFood(f) {
   $('foodName').value = f.name; $('serving').value = f.serving || '';
   $('qty').value = f.qty || 1;
-  for (const k of ['kcal', 'protein', 'carbs', 'fat']) $(k).value = round1(f[k]);
-}
-
-function renderRecent() {
-  const box = $('recent');
-  box.replaceChildren();
-  for (const f of state.recent.slice(0, 15)) {
-    const b = document.createElement('button');
-    b.type = 'button';
-    const n = document.createElement('span'); n.textContent = f.name;
-    const k = document.createElement('span'); k.className = 'small muted num'; k.textContent = `${Math.round(f.kcal)} kcal`;
-    b.append(n, k);
-    b.onclick = () => fillFood({ ...f, qty: 1 });
-    box.append(b);
-  }
+  for (const k of NUTR) $(k).value = round1(f[k]);
+  captureBase();
+  updateTotal();
 }
 
 $('foodForm').onsubmit = (ev) => {
@@ -489,20 +580,90 @@ $('foodForm').onsubmit = (ev) => {
   };
   const qty = parseFloat($('qty').value);
   if (!food.name || !(qty > 0)) return;
-  const key = dayKey(current);
-  const list = state.log[key] || (state.log[key] = []);
-  if (editing) Object.assign(editing, food, { qty, meal: $('meal').value });
-  else list.push({ id: Date.now() + Math.random(), meal: $('meal').value, qty, ...food });
-  // Most recent first, one entry per food name, capped so storage stays small.
-  state.recent = [food, ...state.recent.filter((r) => r.name.toLowerCase() !== food.name.toLowerCase())].slice(0, 50);
-  save();
+  if (editing) { Object.assign(editing, food, { qty, meal: $('meal').value }); remember(food); save(); renderToday(); }
+  else addEntries([{ ...food, qty }], $('meal').value);
   closeSheet();
-  renderToday();
 };
 $('deleteFood').onclick = () => {
   const key = dayKey(current);
   state.log[key] = (state.log[key] || []).filter((e) => e !== editing);
   save(); closeSheet(); renderToday();
+};
+
+// ----- create food -----
+function openNewFood(forMeal) {
+  newFoodForMeal = forMeal;
+  $('newFoodForm').reset();
+  showScreen('newFoodForm');
+}
+$('newFoodForm').onsubmit = (ev) => {
+  ev.preventDefault();
+  const n = (id) => parseFloat($(id).value) || 0;
+  const food = { brand: $('nfBrand').value.trim(), name: $('nfName').value.trim(), serving: $('nfServing').value.trim(),
+    kcal: n('nfKcal'), protein: n('nfProtein'), carbs: n('nfCarbs'), fat: n('nfFat') };
+  if ($('nfPer').value) food.perContainer = n('nfPer');
+  if (!food.name) return;
+  const label = foodLabel(food).toLowerCase();
+  state.foods = [food, ...state.foods.filter((f) => foodLabel(f).toLowerCase() !== label)].slice(0, 500);
+  save();
+  if (newFoodForMeal) { draft.foods.push({ ...food, name: foodLabel(food), qty: 1 }); showScreen('newMealForm'); renderDraft(); }
+  else { showScreen('browse'); setTab('foods'); }
+  setStatus(`Saved ${foodLabel(food)}.`);
+};
+
+// ----- create (or edit) a meal -----
+function openMealBuilder(m) {
+  draft = { id: m ? m.id : null, foods: m ? m.foods.map((f) => ({ ...f })) : [] };
+  $('newMealForm').reset();
+  $('nmName').value = m ? m.name : '';
+  showScreen('newMealForm');
+  if (m) $('sheetTitle').textContent = 'Edit meal';
+  renderDraft();
+}
+function renderDraftTotal() {
+  $('nmTotal').textContent = draft.foods.length ? `Total: ${macroLine(totals(draft.foods))}` : 'No foods yet. Add them below.';
+}
+function renderDraft() {
+  $('nmFoods').replaceChildren(...draft.foods.map((f, i) => {
+    const row = el('div', 'item');
+    const text = el('div');
+    text.style.cssText = 'flex:1;min-width:0;padding:8px 12px';
+    text.append(el('div', 'name', f.name), el('div', 'small muted', foodSub(f)));
+    const qty = el('input');
+    Object.assign(qty, { type: 'number', min: '0.01', step: 'any', value: f.qty, inputMode: 'decimal' });
+    qty.setAttribute('aria-label', `Servings of ${f.name}`);
+    qty.oninput = () => { const v = parseFloat(qty.value); if (v > 0 && v <= 1000) { f.qty = v; renderDraftTotal(); } };
+    const del = el('button', 'more', '✕');
+    del.type = 'button';
+    del.setAttribute('aria-label', `Remove ${f.name}`);
+    del.onclick = () => { draft.foods.splice(i, 1); renderDraft(); };
+    row.append(text, qty, del);
+    return row;
+  }));
+  renderDraftTotal();
+  renderPick();
+}
+function renderPick() {
+  const q = $('nmSearch').value.trim().toLowerCase();
+  const add = (f) => () => { draft.foods.push({ ...f, name: foodLabel(f), qty: 1 }); renderDraft(); };
+  $('nmPick').replaceChildren(...myFoods().filter((f) => foodLabel(f).toLowerCase().includes(q)).slice(0, 20)
+    .map((f) => itemRow(foodLabel(f), foodSub(f), add(f), add(f), 'Add')));
+}
+$('nmSearch').oninput = renderPick;
+$('nmNewFood').onclick = () => openNewFood(true);
+$('newMealForm').onsubmit = (ev) => {
+  ev.preventDefault();
+  const name = $('nmName').value.trim();
+  if (!name) return;
+  if (!draft.foods.length) { setStatus('Add at least one food to the meal.', true); return; }
+  const meal = { id: draft.id ?? Date.now(), name, foods: draft.foods };
+  const old = state.meals.find((m) => m.id === draft.id);
+  if (old) meal.lastUsed = old.lastUsed;
+  state.meals = [meal, ...state.meals.filter((m) => m.id !== meal.id && m.name.toLowerCase() !== name.toLowerCase())].slice(0, 200);
+  save();
+  showScreen('browse');
+  setTab('meals');
+  setStatus(`Saved ${name}.`);
 };
 
 // ---------- barcode scanning ----------
@@ -576,6 +737,7 @@ async function lookup(code) {
     }
     stopScan();
     fillFood({ ...parseProduct(data.product), qty: 1 });
+    showScreen('foodForm');
     setStatus('Found it. Check the numbers against the label, then add it.');
   } catch (e) {
     setStatus(navigator.onLine === false
@@ -613,7 +775,7 @@ $('importFile').onchange = async () => {
   const { state: next, error } = Backup.parse(await f.text());
   if (error) { setBackupStatus(`Not imported: ${error}`, true); return; }
   const days = Object.keys(next.log).length;
-  const hasData = state.profile || Object.keys(state.log).length || state.recent.length;
+  const hasData = state.profile || Object.keys(state.log).length || state.recent.length || state.foods.length;
   if (hasData && !confirm(`Replace everything on this phone with this backup (${days} days of diary)? This can't be undone.`)) return;
   state = next; units = state.units; save();
   setUnits(units);

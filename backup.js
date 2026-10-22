@@ -63,7 +63,7 @@
     }
     if (!Array.isArray(d.recent) || d.recent.length > 50) fail('Recent foods are not valid.');
     state.recent = d.recent.map((f, i) => food(f, `Recent food ${i + 1}`));
-    // Weights and saved meals came later, so older backups without them still import.
+    // Weights, saved meals and My foods came later, so older backups without them still import.
     const weights = d.weights ?? {};
     if (!isObj(weights)) fail('Weights are not valid.');
     state.weights = {};
@@ -76,8 +76,18 @@
     state.meals = meals.map((m, i) => {
       const where = `Saved meal ${i + 1}`;
       if (!isObj(m) || !Array.isArray(m.foods) || !m.foods.length || m.foods.length > 50) fail(`${where} is not valid.`);
-      return { id: num(m.id, 0, Number.MAX_SAFE_INTEGER, `${where} id`), name: str(m.name, 120, `${where} name`),
+      const out = { id: num(m.id, 0, Number.MAX_SAFE_INTEGER, `${where} id`), name: str(m.name, 120, `${where} name`),
         foods: m.foods.map((f, j) => ({ ...food(f, `${where} food ${j + 1}`), qty: num(f.qty, 0.001, 1000, `${where} food ${j + 1} servings`) })) };
+      if (m.lastUsed !== undefined) out.lastUsed = num(m.lastUsed, 0, Number.MAX_SAFE_INTEGER, `${where} last used`);
+      return out;
+    });
+    const foods = d.foods ?? [];
+    if (!Array.isArray(foods) || foods.length > 500) fail('My foods are not valid.');
+    state.foods = foods.map((f, i) => {
+      const where = `My food ${i + 1}`;
+      const out = { ...food(f, where), brand: str(f.brand ?? '', 60, `${where} brand`, true) };
+      if (f.perContainer !== undefined) out.perContainer = num(f.perContainer, 0, 1000, `${where} servings per container`);
+      return out;
     });
     return state;
   }

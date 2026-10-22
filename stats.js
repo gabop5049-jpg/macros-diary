@@ -38,7 +38,20 @@
     });
   }
 
-  const api = { dayKey, addDays, weekStart, weekDays, totals, macroSplit, streak, weeklyWeights };
+  // How much bigger serving `to` is than serving `from`, when both are "<amount> <unit>" with the
+  // same unit ("30 g" → "45 g" is 1.5, "1/2 cup" → "1 cup" is 2). null when they can't be compared.
+  function servingFactor(from, to) {
+    const parse = (s) => {
+      const m = /^\s*(?:(\d+)\s*\/\s*(\d+)|(\d*\.?\d+))\s*(.*?)\s*$/.exec(s || '');
+      if (!m) return null;
+      return { amount: m[3] !== undefined ? parseFloat(m[3]) : m[1] / m[2], unit: m[4].toLowerCase() };
+    };
+    const a = parse(from), b = parse(to);
+    if (!a || !b || a.unit !== b.unit || !(a.amount > 0) || !Number.isFinite(a.amount) || !Number.isFinite(b.amount)) return null;
+    return b.amount / a.amount;
+  }
+
+  const api = { dayKey, addDays, weekStart, weekDays, totals, macroSplit, streak, weeklyWeights, servingFactor };
   if (typeof module !== 'undefined') module.exports = api;
   else root.Stats = api;
 })(this);
