@@ -350,10 +350,51 @@ async function lookup(code) {
   }
 }
 
+// ---------- backup ----------
+function setBackupStatus(msg, err) { $('backupStatus').textContent = msg; $('backupStatus').classList.toggle('err', !!err); }
+
+$('exportBtn').onclick = async () => {
+  const name = `macro-diary-${dayKey(new Date())}.json`;
+  const file = new File([JSON.stringify(Backup.wrap(state), null, 1)], name, { type: 'application/json' });
+  // The share sheet ("Save to Files") is the reliable way to save a file from an iPhone home-screen app.
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try { await navigator.share({ files: [file] }); setBackupStatus(`Exported ${name}.`); }
+    catch (e) { if (e.name !== 'AbortError') setBackupStatus('Export failed. Try again.', true); }
+    return;
+  }
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(file);
+  a.download = name;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+  setBackupStatus(`Exported ${name}.`);
+};
+
+// No `accept` filter on the file input: iOS greys out .json files for some accept values.
+$('importBtn').onclick = () => { $('importFile').value = ''; $('importFile').click(); };
+$('importFile').onchange = async () => {
+  const f = $('importFile').files[0];
+  if (!f) return;
+  if (f.size > Backup.MAX_FILE_BYTES) { setBackupStatus('The file is too big to be a backup.', true); return; }
+  const { state: next, error } = Backup.parse(await f.text());
+  if (error) { setBackupStatus(`Not imported: ${error}`, true); return; }
+  const days = Object.keys(next.log).length;
+  const hasData = state.profile || Object.keys(state.log).length || state.recent.length;
+  if (hasData && !confirm(`Replace everything on this phone with this backup (${days} days of diary)? This can't be undone.`)) return;
+  state = next; units = state.units; save();
+  setUnits(units);
+  if (state.profile) { fillProfile(state.profile); renderTargets(Calc.targets(state.profile)); }
+  else { $('profileForm').reset(); $('targetsCard').hidden = true; }
+  renderDiary();
+  setBackupStatus(`Imported ${days} day${days === 1 ? '' : 's'} of diary.`);
+};
+
 // ---------- start ----------
 setUnits(units);
 if (state.profile) { fillProfile(state.profile); renderTargets(Calc.targets(state.profile)); }
 renderDiary();
 show(state.profile ? 'diary' : 'goals');
 
+// Asks the browser not to evict our storage under pressure (Chrome/Android; Safari may ignore it).
+if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => { /* app still works online */ });
