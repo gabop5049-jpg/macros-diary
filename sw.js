@@ -4,7 +4,7 @@
 const CACHE_VERSION = 'dev';
 const CACHE_PREFIX = 'macro-diary-';
 const CACHE = CACHE_PREFIX + CACHE_VERSION;
-const FILES = ['./', 'index.html', 'app.js', 'calc.js', 'backup.js', 'manifest.webmanifest', 'icon.svg',
+const FILES = ['./', 'index.html', 'app.js', 'calc.js', 'stats.js', 'ideas.js', 'backup.js', 'manifest.webmanifest', 'icon.svg',
   'icon-192.png', 'icon-512.png', 'vendor/zxing-browser.min.js'];
 
 // Only a real copy of our own file is worth saving. A redirect (expired Access session), an
