@@ -12,17 +12,17 @@
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon-192.png">
 <style>
-  /* Layout: blue app bar on top, scrolling cards in the middle, tab bar pinned to the bottom. */
+  /* Layout: page title on top, scrolling cards in the middle, tab bar with a round + button pinned to the bottom. */
   :root {
     --brand: #0b5fd6; --brand-ink: #ffffff; --bg: #eef1f5; --card: #ffffff;
     --fg: #1c2430; --muted: #6a7686; --line: #dde2e9;
-    --protein: #d9480f; --carbs: #1c7ed6; --fat: #e8a400; --over: #d6336c; --ok: #2b8a3e;
+    --protein: #f59f00; --carbs: #12b5a5; --fat: #7c3aed; --over: #d6336c; --ok: #2b8a3e;
     --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     color-scheme: light;
   }
   @media (prefers-color-scheme: dark) {
     :root { --brand: #2f78e4; --bg: #0f141b; --card: #1a212b; --fg: #e8edf3; --muted: #93a0b0; --line: #2a3340;
-      --protein: #ff8a4c; --carbs: #5aa9f0; --fat: #f5c542; --over: #f06595; --ok: #51cf66; color-scheme: dark; }
+      --protein: #ffc94d; --carbs: #3dd9c5; --fat: #a78bfa; --over: #f06595; --ok: #51cf66; color-scheme: dark; }
   }
   * { box-sizing: border-box; }
   html, body { height: 100%; }
@@ -30,44 +30,83 @@
   button, input, select { font: inherit; color: inherit; }
   [hidden] { display: none !important; }
 
-  .appbar { position: sticky; top: 0; z-index: 5; background: var(--brand); color: var(--brand-ink);
-    padding: calc(env(safe-area-inset-top, 0px) + 10px) max(16px, env(safe-area-inset-right, 0px)) 10px max(16px, env(safe-area-inset-left, 0px)); }
-  .appbar h1 { margin: 0; font-size: 18px; font-weight: 600; text-align: center; }
-  .datebar { display: flex; align-items: center; justify-content: space-between; margin-top: 6px; }
-  .datebar button { background: none; border: 0; color: inherit; font-size: 22px; width: 44px; height: 36px; cursor: pointer; }
-  .datebar span { font-weight: 600; }
+  .top { display: flex; align-items: center; justify-content: space-between; max-width: 560px; margin: 0 auto;
+    padding: calc(env(safe-area-inset-top, 0px) + 14px) max(16px, env(safe-area-inset-right, 0px)) 4px max(16px, env(safe-area-inset-left, 0px)); }
+  .top h1, .titlebtn { margin: 0; font-size: 28px; font-weight: 800; }
+  .titlebtn { position: relative; display: flex; align-items: center; color: var(--fg); cursor: pointer; }
+  .titlebtn::after { content: ""; margin-left: 8px; border: 6px solid transparent; border-top-color: currentColor; border-bottom: 0; }
+  /* The real date input sits invisibly on top of the title, so tapping the title opens the phone's date picker. */
+  .titlebtn input { position: absolute; inset: 0; opacity: 0; width: 100%; padding: 0; border: 0; }
+  .streak { display: flex; align-items: center; gap: 2px; font-weight: 700; }
+  .streak svg { width: 18px; height: 18px; }
 
   main { padding: 12px max(12px, env(safe-area-inset-right, 0px)) calc(84px + env(safe-area-inset-bottom, 0px)) max(12px, env(safe-area-inset-left, 0px));
-    display: grid; gap: 12px; max-width: 560px; margin: 0 auto; }
-  .card { background: var(--card); border-radius: 10px; padding: 14px; }
+    display: grid; gap: 12px; max-width: 560px; margin: 0 auto; align-content: start; }
+  .card { background: var(--card); border-radius: 16px; padding: 16px; }
   .card h2 { margin: 0 0 10px; font-size: 15px; font-weight: 600; }
   .muted { color: var(--muted); }
   .small { font-size: 13px; }
   .num { font-variant-numeric: tabular-nums; }
 
-  .equation { display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; align-items: end; text-align: center; gap: 4px; }
-  .equation b { display: block; font-size: 20px; }
-  .equation .op { padding-bottom: 18px; color: var(--muted); }
-  .equation .result b { color: var(--brand); font-size: 24px; }
-  .equation .result.over b { color: var(--over); }
-  .equation small { color: var(--muted); font-size: 12px; }
+  .week { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; }
+  .week button { background: none; border: 0; padding: 4px 0; cursor: pointer; display: grid; justify-items: center; gap: 4px; font-size: 13px; font-weight: 600; color: var(--muted); }
+  .week .today { color: var(--fg); }
+  .week .today::before { content: ""; width: 4px; height: 4px; border-radius: 50%; background: currentColor; margin-top: -8px; }
+  .week i { width: 26px; height: 26px; border-radius: 50%; border: 2px solid var(--line); display: grid; place-items: center; font-style: normal; }
+  .week .done i { background: var(--fg); border-color: var(--fg); color: var(--bg); }
+  .week .done i::after { content: "✓"; font-size: 14px; font-weight: 800; }
+  .week [aria-pressed="true"] i { outline: 2px solid var(--brand); outline-offset: 2px; }
 
-  .macro { display: grid; grid-template-columns: 70px 1fr auto; gap: 10px; align-items: center; margin-top: 10px; }
   .bar { height: 8px; border-radius: 4px; background: var(--line); overflow: hidden; }
   .bar i { display: block; height: 100%; border-radius: 4px; }
-  .macro.over .bar i { background: var(--over) !important; }
+  .bar i.over { background: var(--over) !important; }
+  .big { font-size: 22px; font-weight: 800; }
+  .calrow { display: flex; justify-content: space-between; align-items: end; margin: 4px 0 10px; }
+  .macros3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .macros3 .bar { margin-top: 6px; }
+  .c-brand { background: var(--brand); fill: var(--brand); stroke: var(--brand); }
+  .c-carbs { background: var(--carbs); fill: none; stroke: var(--carbs); }
+  .c-fat { background: var(--fat); fill: none; stroke: var(--fat); }
+  .c-protein { background: var(--protein); fill: none; stroke: var(--protein); }
+  .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; }
 
-  .meal { padding: 0; overflow: hidden; }
-  .meal header { display: flex; justify-content: space-between; padding: 12px 14px; font-weight: 600; border-bottom: 1px solid var(--line); }
-  .entry { display: flex; justify-content: space-between; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--line); cursor: pointer; }
+  .seg.tags { background: var(--card); }
+  .seg.tags button { font-size: 13px; padding: 8px 4px; }
+  .sectionhead { display: flex; justify-content: space-between; align-items: center; margin: 8px 4px -2px; }
+  .sectionhead h2 { margin: 0; font-size: 20px; font-weight: 800; }
+  .linkbtn { background: none; border: 0; color: var(--fg); font-weight: 600; cursor: pointer; padding: 6px; }
+  .meal { display: grid; grid-template-columns: 32px 1fr auto auto; gap: 4px 10px; align-items: start; }
+  .meal > svg { width: 26px; height: 26px; color: var(--brand); margin-top: 2px; }
+  .meal h3 { margin: 0; font-size: 17px; font-weight: 600; }
+  .meal .subs { grid-column: 2 / -1; min-width: 0; margin-top: -8px; }
+  .meal .sum { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .more { background: none; border: 0; color: var(--muted); font-size: 20px; line-height: 1; padding: 2px 6px; cursor: pointer; letter-spacing: 1px; }
+  .logbtn { border: 0; border-radius: 999px; background: color-mix(in srgb, var(--brand) 14%, transparent); color: var(--brand); font-weight: 700; padding: 6px 16px; cursor: pointer; }
+  .meal .items { grid-column: 1 / -1; margin: 8px -16px -16px; border-top: 1px solid var(--line); }
+  .entry { display: flex; justify-content: space-between; gap: 10px; padding: 10px 16px; border-bottom: 1px solid var(--line); cursor: pointer; }
   .entry > div { min-width: 0; }
   .entry .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .addlink { display: block; width: 100%; text-align: left; padding: 12px 14px; background: none; border: 0; color: var(--brand); font-weight: 600; letter-spacing: .03em; cursor: pointer; }
+  .addlink { display: block; width: 100%; text-align: left; padding: 12px 16px; background: none; border: 0; color: var(--brand); font-weight: 600; cursor: pointer; }
+
+  .chart { width: 100%; height: auto; display: block; overflow: visible; }
+  .chart text { fill: var(--muted); font-size: 11px; font-family: var(--font); }
+  .chart .axis { stroke: var(--line); }
+  .chart .goal { stroke: var(--muted); stroke-dasharray: 4 4; }
+  .chart .over { fill: var(--over); }
+  .chart .line { fill: none; stroke: var(--brand); stroke-width: 2.5; stroke-linejoin: round; }
+  .chart .pt { fill: var(--brand); }
+  .piebox { display: grid; grid-template-columns: 140px 1fr; gap: 16px; align-items: center; }
+  .weekhead { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .weekhead h2 { margin: 0; }
+  .weekhead button { background: none; border: 0; color: var(--brand); font-size: 22px; width: 36px; height: 32px; cursor: pointer; }
 
   .tabs { position: fixed; left: 0; right: 0; bottom: 0; z-index: 5; display: flex; background: var(--card); border-top: 1px solid var(--line);
     padding: 0 env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px); }
   .tabs button { flex: 1; background: none; border: 0; padding: 10px 0 12px; color: var(--muted); font-size: 12px; cursor: pointer; display: grid; justify-items: center; gap: 2px; }
-  .tabs button[aria-current="page"] { color: var(--brand); font-weight: 600; }
+  .tabs button[aria-current="page"] { color: var(--fg); font-weight: 600; }
+  .tabs .plus { align-self: center; }
+  .tabs .plus span { width: 48px; height: 48px; border-radius: 50%; background: var(--brand); color: var(--brand-ink); display: grid; place-items: center; }
+  .tabs .plus svg { width: 28px; height: 28px; }
   .tabs svg { width: 24px; height: 24px; }
 
   form.grid { display: grid; gap: 12px; }
@@ -88,45 +127,86 @@
   .note { background: color-mix(in srgb, var(--fat) 18%, transparent); border-radius: 8px; padding: 10px; font-size: 13px; }
 
   .sheet { position: fixed; inset: 0; z-index: 10; background: rgb(0 0 0 / .45); display: flex; align-items: flex-end; justify-content: center; }
-  .sheet > div { background: var(--bg); width: 100%; max-width: 560px; max-height: 92%; overflow-y: auto; border-radius: 14px 14px 0 0;
+  .sheet > div { background: var(--bg); width: 100%; max-width: 560px; height: 92%; align-content: start; overflow-y: auto; border-radius: 14px 14px 0 0;
     padding: 16px max(16px, env(safe-area-inset-right, 0px)) calc(16px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); display: grid; gap: 12px; }
   .sheet h2 { margin: 0; font-size: 17px; }
   .sheethead { display: flex; justify-content: space-between; align-items: center; }
   .sheethead button { background: none; border: 0; color: var(--brand); font-size: 15px; cursor: pointer; padding: 6px; }
   #video { width: 100%; border-radius: 10px; background: #000; aspect-ratio: 4 / 3; object-fit: cover; }
   .recent { display: grid; gap: 0; background: var(--card); border-radius: 10px; overflow: hidden; }
-  .recent button { text-align: left; background: none; border: 0; border-bottom: 1px solid var(--line); padding: 10px 12px; cursor: pointer; display: flex; justify-content: space-between; gap: 8px; }
+  .recent:empty { display: none; }
+  .item { display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--line); }
+  .item > button:first-child { flex: 1; min-width: 0; text-align: left; background: none; border: 0; padding: 10px 12px; cursor: pointer; }
+  .item .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .item .addone { flex: none; width: 34px; height: 34px; margin-right: 10px; border-radius: 50%; border: 0; background: color-mix(in srgb, var(--brand) 14%, transparent); color: var(--brand); font-size: 22px; line-height: 1; cursor: pointer; }
+  .item input { width: 70px; margin-right: 6px; padding: 6px; }
+  .tile { display: flex; align-items: center; gap: 10px; padding: 12px; border: 0; border-radius: 12px; background: var(--card); color: var(--brand); font-weight: 600; cursor: pointer; }
+  .tile svg { width: 24px; height: 24px; }
+  input[type="search"] { border-radius: 999px; padding-left: 16px; }
   .status { font-size: 13px; min-height: 1.4em; }
   .status.err { color: var(--over); }
+  .status:empty { display: none; }
+  .screen { display: grid; gap: 12px; align-content: start; }
   @media (prefers-reduced-motion: no-preference) { .bar i { transition: width .3s; } }
 </style>
 </head>
 <body>
-<header class="appbar">
-  <h1 id="title">Diary</h1>
-  <div class="datebar" id="datebar">
-    <button id="prevDay" aria-label="Previous day">‹</button>
-    <span id="dateLabel">Today</span>
-    <button id="nextDay" aria-label="Next day">›</button>
-  </div>
+<header class="top">
+  <label class="titlebtn" id="dateBtn"><span id="dateLabel">Today</span><input type="date" id="datePick" aria-label="Pick a day"></label>
+  <h1 id="title" hidden></h1>
+  <span class="streak num" id="streak" title="Days in a row with food logged"><span id="streakNum">0</span>
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg></span>
 </header>
 
-<main id="diaryView">
+<main id="todayView">
+  <div class="week" id="week"></div>
   <section class="card">
-    <h2>Calories Remaining</h2>
-    <div class="equation num">
-      <div><b id="eqGoal">0</b><small>Goal</small></div>
-      <div class="op">−</div>
-      <div><b id="eqFood">0</b><small>Food</small></div>
-      <div class="op">=</div>
-      <div class="result" id="eqResultBox"><b id="eqResult">0</b><small>Remaining</small></div>
-    </div>
-    <div id="macros"></div>
+    <div>Calories</div>
+    <div class="calrow num"><span><span class="big" id="calEaten">0 cal</span> <span class="muted" id="calGoal"></span></span>
+      <span class="small muted" id="calLeft"></span></div>
+    <div class="bar"><i id="calBar" class="c-brand"></i></div>
   </section>
+  <section class="card macros3 num" id="macros"></section>
+  <div class="sectionhead"><h2>Diary</h2><button class="linkbtn" type="button" id="viewAll">View all</button></div>
   <div id="meals" style="display:grid;gap:12px"></div>
 </main>
 
-<main id="goalsView" hidden>
+<main id="planView" hidden>
+  <section class="card">
+    <label>Log meals to<select id="planMeal"></select></label>
+    <p class="small muted" style="margin:8px 0 0">Log adds every food in the meal to your diary for <b id="planDay">Today</b> in one tap. Pick another day on the Today page.</p>
+  </section>
+  <div class="sectionhead"><h2>My meals</h2></div>
+  <div id="myMeals" style="display:grid;gap:12px"></div>
+  <div class="sectionhead"><h2>Meal ideas</h2></div>
+  <div class="seg tags" id="ideaTags" role="group" aria-label="Show ideas for"></div>
+  <div id="ideas" style="display:grid;gap:12px"></div>
+</main>
+
+<main id="progressView" hidden>
+  <section class="card">
+    <div class="weekhead"><button type="button" id="prevWeek" aria-label="Previous week">‹</button><h2 id="weekLabel">This week</h2><button type="button" id="nextWeek" aria-label="Next week">›</button></div>
+    <svg class="chart" id="calChart" viewBox="0 0 320 170" role="img" aria-label="Calories per day this week"></svg>
+    <p class="small muted" style="margin:6px 0 0" id="calAvg"></p>
+  </section>
+  <section class="card">
+    <h2>Macros this week</h2>
+    <div class="piebox"><svg class="chart" id="pie" viewBox="0 0 100 100" role="img" aria-label="Share of calories from carbs, fat and protein"></svg><div id="pieLegend" style="display:grid;gap:8px"></div></div>
+  </section>
+  <section class="card">
+    <h2>Weight</h2>
+    <form class="row" id="weightForm" style="align-items:end">
+      <label>Date<input type="date" id="weightDate" required></label>
+      <label><span id="weightUnit">Weight (lb)</span><input id="weightVal" type="number" inputmode="decimal" step="0.1" required></label>
+      <button class="btn" type="submit" style="grid-column:1/-1">Save weight</button>
+    </form>
+    <div class="status" id="weightStatus" role="status"></div>
+    <svg class="chart" id="weightChart" viewBox="0 0 320 170" role="img" aria-label="Average weight per week"></svg>
+    <p class="small muted" style="margin:6px 0 0" id="weightChange"></p>
+  </section>
+</main>
+
+<main id="moreView" hidden>
   <section class="card">
     <h2>Your details</h2>
     <form class="grid" id="profileForm">
@@ -211,36 +291,64 @@
 </main>
 
 <nav class="tabs">
-  <button id="tabDiary" aria-current="page">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>Diary</button>
-  <button id="tabGoals">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/></svg>Goals</button>
+  <button id="tab-today" aria-current="page">
+    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3 3 10.5V21h6.5v-6h5v6H21V10.5z"/></svg>Today</button>
+  <button id="tab-plan">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Plan</button>
+  <button id="addBtn" class="plus" aria-label="Add food">
+    <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span></button>
+  <button id="tab-progress">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V12h4v8M10 20V4h4v16M16 20V9h4v11"/></svg>Progress</button>
+  <button id="tab-more">
+    <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>More</button>
 </nav>
+
+<!-- Meal icons, cloned by app.js (cloning keeps the no-innerHTML rule). -->
+<template id="icon-Breakfast"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M4 9h12v6a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5zM16 11h1.5a2.5 2.5 0 0 1 0 5H16M8 3v3M12 3v3"/></svg></template>
+<template id="icon-Lunch"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M4 10a8 5 0 0 1 16 0zM3 13.5h18M4 17h16v.5a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 17.5z"/></svg></template>
+<template id="icon-Dinner"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M3 12h18a9 8 0 0 1-18 0zM9 20h6M8 9c0-2 2-2 2-4M13 9c0-2 2-2 2-4"/></svg></template>
+<template id="icon-Snacks"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M17.2 4.6A9 9 0 1 0 21 11.2a2.6 2.6 0 0 1-2.7-2.6 2.6 2.6 0 0 1-1.1-4z"/><circle cx="8" cy="10" r="1.2" fill="currentColor"/><circle cx="12" cy="15.5" r="1.2" fill="currentColor"/><circle cx="7.5" cy="16" r="1" fill="currentColor"/><circle cx="13" cy="9" r="1" fill="currentColor"/><circle cx="16.5" cy="14.5" r="1" fill="currentColor"/></svg></template>
 
 <div class="sheet" id="foodSheet" hidden>
   <div role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
     <div class="sheethead">
       <button type="button" id="closeSheet">Cancel</button>
       <h2 id="sheetTitle">Add food</h2>
-      <span style="width:52px"></span>
+      <button type="button" id="backBtn" style="min-width:52px">Back</button>
     </div>
-    <button class="btn ghost" type="button" id="scanBtn">Scan a barcode</button>
-    <div id="scanBox" hidden style="display:grid;gap:8px">
-      <video id="video" playsinline muted></video>
-      <div class="row">
-        <input id="manualCode" inputmode="numeric" placeholder="Or type the barcode number" aria-label="Barcode number">
-        <button class="btn ghost" type="button" id="lookupBtn">Look up</button>
-      </div>
-    </div>
+    <label id="mealBox">Meal<select id="meal"></select></label>
     <div class="status" id="scanStatus" role="status"></div>
-    <form class="grid" id="foodForm">
-      <label>Meal<select id="meal"></select></label>
+
+    <!-- Screen 1: search, barcode, History / My meals / My foods -->
+    <section id="browse" class="screen">
+      <input type="search" id="search" placeholder="Search your foods" aria-label="Search your foods" autocomplete="off" maxlength="60">
+      <button class="tile" type="button" id="scanBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 7V4h3M18 4h3v3M21 17v3h-3M6 20H3v-3M7 8v8M10 8v8M13 8v8M16 8v8"/></svg>Barcode scan</button>
+      <div id="scanBox" hidden style="display:grid;gap:8px">
+        <video id="video" playsinline muted></video>
+        <div class="row">
+          <input id="manualCode" inputmode="numeric" placeholder="Or type the barcode number" aria-label="Barcode number">
+          <button class="btn ghost" type="button" id="lookupBtn">Look up</button>
+        </div>
+      </div>
+      <div class="seg" role="group" aria-label="Show">
+        <button type="button" data-tab="history">History</button>
+        <button type="button" data-tab="meals">My meals</button>
+        <button type="button" data-tab="foods">My foods</button>
+      </div>
+      <button class="btn ghost" type="button" id="createBtn" hidden></button>
+      <div class="recent" id="list"></div>
+      <button class="addlink" type="button" id="manualBtn">Type in a food without saving it</button>
+    </section>
+
+    <!-- Screen 2: one food, with servings -->
+    <form class="grid screen" id="foodForm" hidden>
       <label>Food name<input id="foodName" required maxlength="120" autocomplete="off"></label>
       <div class="row">
-        <label>Serving size<input id="serving" placeholder="e.g. 1 cup, 30 g" maxlength="40"></label>
+        <label>Serving size<input id="serving" placeholder="e.g. 1 cup, 30 g" maxlength="40" autocomplete="off"></label>
         <label>Number of servings<input id="qty" type="number" inputmode="decimal" min="0.01" step="any" value="1" required></label>
       </div>
-      <p class="small muted" style="margin:0">Nutrition per serving</p>
+      <p class="small muted" style="margin:0">Nutrition per serving. Change the number in the serving size (30 g → 45 g) and these scale with it.</p>
       <div class="row">
         <label>Calories<input id="kcal" type="number" inputmode="decimal" min="0" step="any" required></label>
         <label>Protein (g)<input id="protein" type="number" inputmode="decimal" min="0" step="any" value="0"></label>
@@ -249,17 +357,47 @@
         <label>Carbs (g)<input id="carbs" type="number" inputmode="decimal" min="0" step="any" value="0"></label>
         <label>Fat (g)<input id="fat" type="number" inputmode="decimal" min="0" step="any" value="0"></label>
       </div>
+      <div class="card num" id="foodTotal"></div>
       <button class="btn" type="submit" id="saveFood">Add to diary</button>
       <button class="btn danger" type="button" id="deleteFood" hidden>Remove from diary</button>
     </form>
-    <div id="recentBox">
-      <p class="small muted" style="margin:0 0 6px">Recent foods</p>
-      <div class="recent" id="recent"></div>
-    </div>
+
+    <!-- Screen 3: create a food for My foods -->
+    <form class="grid screen" id="newFoodForm" hidden>
+      <label>Brand name<input id="nfBrand" maxlength="60" placeholder="Optional" autocomplete="off"></label>
+      <label>Description<input id="nfName" maxlength="60" required placeholder="e.g. Greek yogurt, plain" autocomplete="off"></label>
+      <div class="row">
+        <label>Serving size<input id="nfServing" maxlength="40" required placeholder="e.g. 1 cup, 170 g" autocomplete="off"></label>
+        <label>Servings per container<input id="nfPer" type="number" inputmode="decimal" min="0" max="1000" step="any" placeholder="Optional"></label>
+      </div>
+      <p class="small muted" style="margin:0">Nutrition per serving</p>
+      <div class="row">
+        <label>Calories<input id="nfKcal" type="number" inputmode="decimal" min="0" max="20000" step="any" required></label>
+        <label>Protein (g)<input id="nfProtein" type="number" inputmode="decimal" min="0" max="2000" step="any" value="0"></label>
+      </div>
+      <div class="row">
+        <label>Carbs (g)<input id="nfCarbs" type="number" inputmode="decimal" min="0" max="2000" step="any" value="0"></label>
+        <label>Fat (g)<input id="nfFat" type="number" inputmode="decimal" min="0" max="2000" step="any" value="0"></label>
+      </div>
+      <button class="btn" type="submit">Save food</button>
+    </form>
+
+    <!-- Screen 4: create a meal out of foods -->
+    <form class="grid screen" id="newMealForm" hidden>
+      <label>Meal name<input id="nmName" maxlength="120" required placeholder="e.g. BLT" autocomplete="off"></label>
+      <div class="recent" id="nmFoods"></div>
+      <div class="card num small" id="nmTotal"></div>
+      <label>Add foods<input type="search" id="nmSearch" placeholder="Search your foods" autocomplete="off" maxlength="60"></label>
+      <div class="recent" id="nmPick"></div>
+      <button class="addlink" type="button" id="nmNewFood">Food not listed? Create it</button>
+      <button class="btn" type="submit">Save meal</button>
+    </form>
   </div>
 </div>
 
 <script src="calc.js"></script>
+<script src="stats.js"></script>
+<script src="ideas.js"></script>
 <script src="backup.js"></script>
 <script src="app.js"></script>
 </body>

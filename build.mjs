@@ -4,7 +4,7 @@ import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync, existsSync } fr
 import { execSync } from 'node:child_process';
 
 // An allowlist, not a denylist: a new file (notes, .env, test data) is never shipped by accident.
-const FILES = ['index.html', 'app.js', 'calc.js', 'backup.js', 'manifest.webmanifest', 'icon.svg',
+const FILES = ['index.html', 'app.js', 'calc.js', 'stats.js', 'ideas.js', 'backup.js', 'manifest.webmanifest', 'icon.svg',
   'icon-192.png', 'icon-512.png', '_headers', 'vendor/zxing-browser.min.js', 'vendor/zxing-browser.LICENSE'];
 
 rmSync('dist', { recursive: true, force: true });
