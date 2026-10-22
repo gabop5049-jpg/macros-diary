@@ -11,6 +11,7 @@
     lifeStage: ['none', 'preg1', 'preg2', 'preg3', 'breastfeeding'],
   };
   const MAX_FILE_BYTES = 5 * 1024 * 1024;
+  const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
   const isObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
   const fail = (msg) => { throw new Error(msg); };
@@ -52,7 +53,7 @@
     const state = { units: oneOf(d.units, ['imperial', 'metric'], 'Units'), profile: profile(d.profile), log: {}, recent: [] };
     if (!isObj(d.log)) fail('Diary is not valid.');
     for (const [day, list] of Object.entries(d.log)) {
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) fail(`"${day.slice(0, 20)}" is not a date.`);
+      if (!DATE.test(day)) fail(`"${day.slice(0, 20)}" is not a date.`);
       if (!Array.isArray(list) || list.length > 500) fail(`Diary for ${day} is not valid.`);
       state.log[day] = list.map((e, i) => {
         const where = `${day} item ${i + 1}`;
@@ -62,6 +63,22 @@
     }
     if (!Array.isArray(d.recent) || d.recent.length > 50) fail('Recent foods are not valid.');
     state.recent = d.recent.map((f, i) => food(f, `Recent food ${i + 1}`));
+    // Weights and saved meals came later, so older backups without them still import.
+    const weights = d.weights ?? {};
+    if (!isObj(weights)) fail('Weights are not valid.');
+    state.weights = {};
+    for (const [day, kg] of Object.entries(weights)) {
+      if (!DATE.test(day)) fail(`"${day.slice(0, 20)}" is not a date.`);
+      state.weights[day] = num(kg, 25, 450, `Weight on ${day}`);
+    }
+    const meals = d.meals ?? [];
+    if (!Array.isArray(meals) || meals.length > 200) fail('Saved meals are not valid.');
+    state.meals = meals.map((m, i) => {
+      const where = `Saved meal ${i + 1}`;
+      if (!isObj(m) || !Array.isArray(m.foods) || !m.foods.length || m.foods.length > 50) fail(`${where} is not valid.`);
+      return { id: num(m.id, 0, Number.MAX_SAFE_INTEGER, `${where} id`), name: str(m.name, 120, `${where} name`),
+        foods: m.foods.map((f, j) => ({ ...food(f, `${where} food ${j + 1}`), qty: num(f.qty, 0.001, 1000, `${where} food ${j + 1} servings`) })) };
+    });
     return state;
   }
 

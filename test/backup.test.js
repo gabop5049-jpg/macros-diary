@@ -8,12 +8,21 @@ const good = {
     training: 'mixed', goal: 'cut', intensity: 'standard', lifeStage: 'none' },
   log: { '2026-10-22': [{ id: 1761100000000.5, meal: 'Lunch', qty: 1.5, name: 'Oats', serving: '40 g', kcal: 150, protein: 5, carbs: 27, fat: 3 }] },
   recent: [{ name: 'Oats', serving: '40 g', kcal: 150, protein: 5, carbs: 27, fat: 3 }],
+  weights: { '2026-10-22': 60.5 },
+  meals: [{ id: 3, name: 'BLT', foods: [{ name: 'Bacon', serving: '2 slices', kcal: 90, protein: 6, carbs: 0, fat: 7, qty: 1 }] }],
 };
 const text = (data) => JSON.stringify(wrap(data));
 const withData = (patch) => text({ ...structuredClone(good), ...patch });
 
 test('round trip of a real export', () => {
   assert.deepStrictEqual(parse(text(good)).state, good);
+});
+
+test('backups from before weights and saved meals still import', () => {
+  const old = structuredClone(good);
+  delete old.weights; delete old.meals;
+  const { state } = parse(text(old));
+  assert.deepStrictEqual([state.weights, state.meals], [{}, []]);
 });
 
 test('empty app data imports', () => {
@@ -43,6 +52,10 @@ test('rejects bad files', () => {
     'long name': withData({ recent: [{ ...good.recent[0], name: 'a'.repeat(121) }] }),
     'zero qty': withData({ log: { '2026-10-22': [{ ...good.log['2026-10-22'][0], qty: 0 }] } }),
     'log is array': withData({ log: [] }),
+    'string weight': withData({ weights: { '2026-10-22': '60' } }),
+    'bad weight date': withData({ weights: { today: 60 } }),
+    'meal with no foods': withData({ meals: [{ id: 1, name: 'x', foods: [] }] }),
+    'meal food without qty': withData({ meals: [{ id: 1, name: 'x', foods: [good.recent[0]] }] }),
   };
   for (const [why, t] of Object.entries(bad)) assert.ok(parse(t).error, why);
 });

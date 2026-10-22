@@ -4,10 +4,12 @@
 
 | File | Role |
 |---|---|
-| `index.html` | The whole UI (markup + CSS). Loads `calc.js`, `backup.js`, `app.js` in that order with plain `<script>` tags, so each defines globals (`Calc`, `Backup`) the next one uses. |
+| `index.html` | The whole UI (markup + CSS) for the four pages (Today, Plan, Progress, More). Loads `calc.js`, `stats.js`, `ideas.js`, `backup.js`, `app.js` in that order with plain `<script>` tags, so each defines globals (`Calc`, `Stats`, `Ideas`, `Backup`) the next one uses. Meal icons live in `<template>` tags that `app.js` clones. |
+| `stats.js` | Pure date/diary math: Sun–Sat weeks, totals, macro % split (by calories), logging streak, weekly weight averages. Unit tested. |
+| `ideas.js` | Built-in meal ideas for the Plan page, tagged High protein / Low calorie / Cutting / Bulking. |
 | `calc.js` | Pure math: profile in, targets out. No DOM, so Node tests can `require` it. The bottom `module.exports` / `root.Calc` lines make the same file work in Node and the browser. |
 | `backup.js` | Export format + strict import validation. Same Node/browser trick, so it's unit tested too. |
-| `app.js` | Everything on screen: state in `localStorage`, diary, goals form, food sheet, barcode scanning, backup buttons. Registers the service worker at the end. |
+| `app.js` | Everything on screen: state in `localStorage`, Today/Plan/Progress/More pages, charts (inline SVG built with `createElementNS`, no chart library), food sheet, barcode scanning, backup buttons. Registers the service worker at the end. |
 | `sw.js` | Service worker: offline copy of the app. |
 | `manifest.webmanifest` | Name, icons, colors and `display: standalone` for installing to the home screen. |
 | `vendor/zxing-browser.min.js` | Barcode decoder (MIT). Loaded lazily by `app.js` only when you tap Scan. |

@@ -2,6 +2,7 @@
 
 A phone web app in the style of MyFitnessPal: enter your details, get daily calorie and macro targets, log food by hand or by scanning a barcode.
 
+- **Pages:** Today (week strip, calories and macros, Breakfast/Lunch/Dinner/Snacks), Plan (meal ideas by goal plus your saved meals, logged in one tap), Progress (calories per day Sun–Sat, weekly weight trend, macro pie), More (profile, targets, backup).
 - **Targets:** Mifflin-St Jeor (or Katch-McArdle when body fat % is known) × activity, adjusted for goal (cut, recomp, maintain, bulk) and diet intensity. Math lives in `calc.js`.
 - **Barcodes:** scanned with the camera via ZXing (`vendor/`, MIT), looked up on [Open Food Facts](https://world.openfoodfacts.org).
 - **Offline:** `sw.js` saves the app files on first visit; everything but barcode lookup works without internet. Safe behind Cloudflare Access (never caches login redirects).
