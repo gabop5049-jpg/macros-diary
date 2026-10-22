@@ -4,6 +4,7 @@ A phone web app in the style of MyFitnessPal: enter your details, get daily calo
 
 - **Targets:** Mifflin-St Jeor (or Katch-McArdle when body fat % is known) × activity, adjusted for goal (cut, recomp, maintain, bulk) and diet intensity. Math lives in `calc.js`.
 - **Barcodes:** scanned with the camera via ZXing (`vendor/`, MIT), looked up on [Open Food Facts](https://world.openfoodfacts.org).
+- **Offline:** `sw.js` saves the app files on first visit; everything but barcode lookup works without internet.
 - **Data:** stored only in the browser on each phone (`localStorage`). No accounts, no server.
 
 Run locally: `python3 -m http.server` then open http://localhost:8000. The camera needs HTTPS (or localhost).

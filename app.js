@@ -299,8 +299,11 @@ $('scanBtn').onclick = async () => {
       stopScan();
       lookup(code);
     });
+    // The sheet was closed or a typed barcode was found while the camera started: turn it back off.
+    if ($('scanBox').hidden) { stopScan(); return; }
     setStatus('Point the camera at the barcode.');
   } catch (e) {
+    if ($('scanBox').hidden) return;
     setStatus(e.name === 'NotAllowedError'
       ? 'Camera access was blocked. Allow it in your browser settings, or type the barcode number.'
       : 'Could not start the camera. Type the barcode number instead.', true);
@@ -341,7 +344,9 @@ async function lookup(code) {
     fillFood({ ...parseProduct(data.product), qty: 1 });
     setStatus('Found it. Check the numbers against the label, then add it.');
   } catch (e) {
-    setStatus('Lookup failed. Check your internet connection and try again.', true);
+    setStatus(navigator.onLine === false
+      ? "You're offline. Barcode lookup needs internet, but you can enter the label by hand."
+      : 'Lookup failed. Check your internet connection and try again.', true);
   }
 }
 
@@ -350,3 +355,5 @@ setUnits(units);
 if (state.profile) { fillProfile(state.profile); renderTargets(Calc.targets(state.profile)); }
 renderDiary();
 show(state.profile ? 'diary' : 'goals');
+
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => { /* app still works online */ });
